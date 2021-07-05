@@ -164,7 +164,7 @@ app.use(unknownEndpoint)
 
 
 // Bind the http server assigned to the app variable to listen to the HTTP requests sent to port 3001
-const PORT = 3001 || process.env.PORT
+const PORT = process.env.PORT || 3001 
 app.listen(PORT, () => {
   console.log(`Server running in port ${PORT}`)
 })
