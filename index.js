@@ -4,6 +4,13 @@
 const http = require('http')
  */
 
+/* package.json notes
+// npm run build:ui builds the frontend and copies the production version under the backend repository
+// npm run deploy releases the current backend to heroku
+// npm run deploy:full combines these two and contains the necessary git commands to update the backend repository
+// pm run logs:prod shows the heroku logs
+ */
+
 // GET requests should be "safe" in that the executing request must not cause any side effects in the server
 // All requests except POST should be "idempotent" where the side effects of N>0 identical requests is the same as
 // for a single request
@@ -16,6 +23,14 @@ const http = require('http')
 const express = require('express')
 const app = express()
 const cors = require("cors")
+
+// Whenever express gets an HTTP GET request it will first check if the build directory contains a file
+// corresponding to the request's address
+
+// HTTP GET requests to the address www.serveraddress.com/index.html or  www.serveraddress.com for the frontend
+
+// GET requests to www.serveraddress.com/api/notes are handled by the backend
+app.use(express.static('build'))
 
 // Without json-parser, body property of request would be undefined
 // json-parser takes the JSON data of request, transforms it into object, and then attaches it to body property of request
