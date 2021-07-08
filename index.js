@@ -20,9 +20,11 @@ const http = require('http')
 // Express is a function that is used to create an express application stored in the app variable
 
 // Common convention is to create the unique address for resources by comining name of resource type with its identifier
+require('dotenv').config()
 const express = require('express')
 const app = express()
-const cors = require("cors")
+const cors = require('cors')
+const Note = require('./models/note')
 
 // Whenever express gets an HTTP GET request it will first check if the build directory contains a file
 // corresponding to the request's address
@@ -34,29 +36,9 @@ app.use(express.static('build'))
 
 // Without json-parser, body property of request would be undefined
 // json-parser takes the JSON data of request, transforms it into object, and then attaches it to body property of request
+
 app.use(express.json())
 app.use(cors())
-
-let notes = [
-  {
-    id: 1,
-    content: "HTML is easy",
-    date: new Date("2019-05-30T17:30:31.098Z"),
-    important: true
-  },
-  {
-    id: 2,
-    content: "Browser can execute only Javascript",
-    date: new Date("2019-05-30T18:39:34.091Z"),
-    important: false
-  },
-  {
-    id: 3,
-    content: "GET and POST are the most important methods of HTTP protocol",
-    date: new Date("2019-05-30T19:20:14.298Z"),
-    important: true
-  }
-]
 
 // Event handler is registered to the server (every time an HTTP request is made to the server's address)
 /*const app = http.createServer((request, response) => {
@@ -69,7 +51,7 @@ let notes = [
 
 // Middleware are functions that can be used for handling request and response objects, and we can define our own
 
-/* const requestLogger = (request, response, next) => {
+const requestLogger = (request, response, next) => {
   console.log('Method:', request.method)
   console.log('Path:  ', request.path)
   console.log('Body:  ', request.body)
@@ -79,7 +61,7 @@ let notes = [
 // next function yields control to the next middleware
 
 app.use(requestLogger)
- */
+
 
 // Middleware functions have to be taken into use before routes if we want them to be executed before the event
 // handlers are called
@@ -94,31 +76,48 @@ app.get('/', (request, response) => {
   // Calling send makes the server respond to the HTTP request by sending a response containing <h1>Hello World!</h1>
   // Since it's in a string, express sets the value of Content-Type header to text/html
   // Status code defaults to 200
-  response.send("<h1>Hello World!</h1>")
+  response.send('<h1>Hello World!</h1>')
 })
 
 // Second route defines event handler to handle GET requests made to notes path
 
 app.get('/api/notes', (request, response) => {
   // Send notes array as JSON formatted string, express sets Content-Type to application/json
-  response.json(notes)
+  Note.find({}).then(notes => {
+    response.json(notes)
+  })
 })
 
 // Fetch a single resource
 // Handles all GET requests that are of form api/notes/SOMETHING
 
-app.get('/api/notes/:id', (request, response) => {
+app.get('/api/notes/:id', (request, response, next) => {
   // The request is in a string, so the id returned is a string even though the id in the note object is a number
   // Triple equals compares value and type, so we're getting a mismatch
 
-  const id = Number(request.params.id)
-  /* const note = notes.find(note => {
+  // Always add error and exception handling to promises
+  Note.findById(request.params.id)
+    .then(note => {
+      // Error check the validity of the note
+      if (note) {
+        response.json(note)
+      } else {
+        response.status(404).end()
+      }
+    })
+    // We also need to check for a malformed id, a CastError
+    // If next is called without a param, execution moves to the next route/middleware
+    // If next is called with one, it goes to the error handler middleware
+    .catch(error => next(error))
+
+  /* const id = Number(request.params.id)
+  const note = notes.find(note => {
     console.log(note.id, typeof note.id, id, typeof id, note.id === id)
   })
-   */
 
   // If no note is found, the variable is set to undefined, but the response is still 200
   // We should use a 404 status code
+
   const note = notes.find(note => note.id === id)
   if (note) {
     response.json(note)
@@ -126,9 +125,11 @@ app.get('/api/notes/:id', (request, response) => {
     // Set status with status method and end method for responding to request without sending data
     response.status(404).end()
   }
+  */
 })
 
 
+/*
 // Generate a new id for the note
 
 const generateId = () => {
@@ -138,56 +139,90 @@ const generateId = () => {
   return maxId + 1
 }
 
+*/
+
 // POST request
 
-app.post('/api/notes', (request, response) => {
+app.post('/api/notes', (request, response, next) => {
 
   const body = request.body
   // Body is an object, so we should specify that certain properties cannot be empty, such as content
   // POST request allows users to add objects with arbitrary properties, so we only take the ones we need
 
   if (!body.content) {
-    return response.status(400).json({ error: 'content missing'})
+    return response.status(400).json({ error: 'content missing' })
   }
 
-  const note = {
-    id: generateId(),
+  const note = new Note({
     content: body.content,
     important: body.important || false,
     date: new Date(),
-  }
+  })
 
-  notes = notes.concat(note)
-
-  response.json(note)
+  note.save()
+    .then(savedNote => {
+      response.json(savedNote)
+    })
+    .catch(error => next(error))
 })
 
-app.put('/api/notes/:id', (request, response) => {
-  const id = Number(request.params.id)
-  let note = notes.find(n => n.id === id)
-  note = {...note, important: !note.important}
-  notes = notes.map(n => n.id !== id ? n : note)
-  response.json(note)
+// PUT request
+
+app.put('/api/notes/:id', (request, response, next) => {
+  const body = request.body
+
+  const note = {
+    content: body.content,
+    important: body.important,
+  }
+
+  Note.findByIdAndUpdate(request.params.id, note, { new: true })
+    // updatedNote parameter of the event handler receives the original document without modification
+    // new: true causes our event handler to be called with the new modified document instead of original
+    .then(updatedNote => {
+      response.json(updatedNote)
+    })
+    .catch(error => next(error))
+
 })
 
 // DELETE request
 
-app.delete('/api/notes/:id', (request, response) => {
-  const id = Number(request.params.id)
-  notes = notes.filter(note => note.id !== id)
-  // 204 status code means no content
-  response.status(204).end()
+app.delete('/api/notes/:id', (request, response, next) => {
+  Note.findByIdAndRemove(request.params.id)
+    .then(() => {
+    // 204 status code means no content
+      response.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
 const unknownEndpoint = (request, response) => {
   response.status(404).send({ error: 'unknown endpoint' })
 }
 
+// Express error handlers are middleware defined with a function that accepts 4 params
+// Error handlers should always be the last loaded middleware
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
 app.use(unknownEndpoint)
 
+// this has to be the last loaded middleware.
+app.use(errorHandler)
 
 // Bind the http server assigned to the app variable to listen to the HTTP requests sent to port 3001
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running in port ${PORT}`)
 })

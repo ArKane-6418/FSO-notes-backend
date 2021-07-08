@@ -10,7 +10,8 @@
     "build:ui": "rm -rf build && cd ../Full Stack Open 2021/part2/example && npm run build --prod && cp -r build ../../../FSO-notes-backend",
     "deploy": "git push heroku main",
     "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push && npm run deploy",
-    "logs:prod": "heroku logs --tail"
+    "logs:prod": "heroku logs --tail",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -24,9 +25,12 @@
   "homepage": "https://github.com/ArKane-6418/Full-Stack-Open-2021#readme",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.17.1"
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "mongoose": "^5.13.2"
   },
   "devDependencies": {
+    "eslint": "^7.30.0",
     "nodemon": "^2.0.9"
   },
   "engines": {
